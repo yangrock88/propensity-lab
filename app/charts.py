@@ -44,7 +44,7 @@ MODEL_LABELS = {
 
 
 def _label(p: str) -> str:
-    return p.replace("_", " ")
+    return p.replace("_", " ").title()
 
 
 def _model_label(m: str) -> str:
@@ -128,7 +128,7 @@ def holdings_timeline(timeline: pd.DataFrame, customer_id: int) -> go.Figure:
                 mode="lines+markers",
                 line=dict(color=ACCENT, width=5), marker=dict(size=5, color=ACCENT),
                 opacity=0.75, showlegend=False,
-                hovertemplate=f"Holding {_label(p)} as of %{{x|%b %Y}}<extra></extra>",
+                hovertemplate=f"{_label(p)} — held {len(d)} month{'s' if len(d) != 1 else ''}<extra></extra>",
             )
         )
     fig.update_yaxes(
@@ -153,7 +153,13 @@ def _trend_label(y: "pd.Series") -> str:
     return " →"
 
 
-def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
+def product_small_multiples(trends: pd.DataFrame, top_n: int = 9) -> go.Figure:
+    """3 x 3 grid of mini trend charts, one per top product.
+
+    Each title shows the product name, total sign-ups across the window,
+    and a trend arrow so a viewer gets the story without hovering.
+    Axes show real numbers and dates so the chart is self-contained.
+    """
     from plotly.subplots import make_subplots
 
     trends = trends.copy()
@@ -164,43 +170,44 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
         trends.groupby("product")["adds"].sum().nlargest(top_n).index.tolist()
     )
 
-    # Build titles that tell the viewer the product name, total sign-ups,
-    # and whether the trend is rising, falling, or flat.
     titles = []
     for p in top:
         d = trends[trends["product"] == p]
         total = int(d["adds"].sum())
         arrow = _trend_label(d.sort_values("snapshot_date")["adds"])
-        titles.append(f"{_label(p)}  —  {total:,} total{arrow}")
+        titles.append(f"{_label(p)}  ({total:,} sign-ups{arrow})")
 
-    rows = 2
-    cols = top_n // rows
+    rows, cols = 3, 3
     fig = make_subplots(
-        rows=rows, cols=cols, subplot_titles=titles,
-        vertical_spacing=0.32, horizontal_spacing=0.08,
+        rows=rows, cols=cols,
+        subplot_titles=titles,
+        vertical_spacing=0.16,
+        horizontal_spacing=0.08,
     )
     for i, p in enumerate(top):
         d = trends[trends["product"] == p].sort_values("snapshot_date")
         fig.add_trace(
             go.Scatter(
                 x=d["snapshot_date"], y=d["adds"], fill="tozeroy",
-                line=dict(color=ACCENT, width=1.8), fillcolor=ACCENT_SOFT,
+                line=dict(color=ACCENT, width=2), fillcolor=ACCENT_SOFT,
                 showlegend=False,
                 hovertemplate="%{x|%b %Y}: %{y} new sign-ups<extra></extra>",
             ),
             row=i // cols + 1, col=i % cols + 1,
         )
-    fig.update_annotations(font=dict(size=10, color="#475569"))
-    # Show simplified date labels and actual sign-up counts on the axes
-    # so a viewer can read the chart without prior context.
+
+    fig.update_annotations(font=dict(size=11, color="#475569"))
     fig.update_xaxes(
-        tickformat="%b '%y", tickfont=dict(size=8, color=SLATE), nticks=3,
+        tickformat="%b '%y",
+        tickfont=dict(size=9, color=SLATE),
+        nticks=4,
         showgrid=False,
     )
     fig.update_yaxes(
-        tickfont=dict(size=8, color=SLATE), nticks=3, gridcolor="#eef2f7",
+        tickfont=dict(size=9, color=SLATE),
+        nticks=4,
+        gridcolor="#eef2f7",
     )
-    result = _base(fig, height=500)
-    # Override the tiny default top margin so row-1 titles are not clipped.
-    result.update_layout(margin=dict(l=4, r=4, t=64, b=4))
+    result = _base(fig, height=740)
+    result.update_layout(margin=dict(l=4, r=4, t=68, b=8))
     return result

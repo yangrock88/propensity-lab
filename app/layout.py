@@ -1,6 +1,9 @@
 """Page structure. Pure composition, no callbacks, no data crunching."""
 from __future__ import annotations
 
+import datetime
+
+import pandas as pd
 from dash import dcc, html
 
 from app import data
@@ -33,17 +36,13 @@ def _kpi(label: str, value: str, note: str = "") -> html.Div:
 def header(s: dict) -> html.Div:
     latest = s.get("latest_month", "?")
     try:
-        import datetime
         dt = datetime.datetime.strptime(latest, "%Y-%m-%d")
         latest_label = dt.strftime("%B %Y")
     except Exception:
         latest_label = latest
-    run_ts = s.get("run_ts", "?")
-    run_label = run_ts[:10] if run_ts != "?" else "?"
     pills = [
         html.Span(f"{s.get('months_loaded', '?')} months of history", className="pill"),
-        html.Span(f"through {latest_label}", className="pill"),
-        html.Span(f"last updated {run_label}", className="pill pill-fresh"),
+        html.Span(f"through {latest_label}", className="pill pill-fresh"),
     ]
     return html.Div(
         className="header",
@@ -52,8 +51,7 @@ def header(s: dict) -> html.Div:
                 children=[
                     html.H1("Propensity Lab"),
                     html.P(
-                        "Which financial products is each customer likely to add next? "
-                        "Updated every morning.",
+                        "Which financial products is each customer most likely to add next?",
                         className="muted",
                     ),
                 ]
@@ -101,10 +99,66 @@ def kpi_row(s: dict) -> html.Div:
     )
 
 
+def customer_holdings_cards(timeline: pd.DataFrame, customer_id: int) -> html.Div:
+    """Product portfolio for one customer, shown as readable badge cards.
+
+    Each card states the product name and when the customer first acquired
+    it, so a viewer understands the relationship without reading a chart.
+    """
+    df = timeline[timeline["customer_id"] == customer_id].copy()
+    if df.empty:
+        return html.P("No product history on record for this customer.", className="muted")
+
+    df["snapshot_date"] = pd.to_datetime(df["snapshot_date"])
+    latest = df["snapshot_date"].max()
+    currently_held = set(df[df["snapshot_date"] == latest]["product"])
+    first_seen = df.groupby("product")["snapshot_date"].min()
+
+    count = len(currently_held)
+    if count == 0:
+        return html.P("This customer holds no products at the latest snapshot.", className="muted")
+
+    def _duration(since_dt: "pd.Timestamp") -> str:
+        months = (latest.year - since_dt.year) * 12 + (latest.month - since_dt.month)
+        if months < 1:
+            return "less than a month"
+        if months < 12:
+            return f"{months} month{'s' if months != 1 else ''}"
+        yrs, mos = divmod(months, 12)
+        if mos == 0:
+            return f"{yrs} year{'s' if yrs != 1 else ''}"
+        return f"{yrs}y {mos}m"
+
+    cards = []
+    for product in sorted(currently_held):
+        since_dt = first_seen.get(product, latest)
+        cards.append(
+            html.Div(
+                className="holding-card",
+                children=[
+                    html.Span(
+                        product.replace("_", " ").title(),
+                        className="holding-name",
+                    ),
+                    html.Span(_duration(since_dt), className="holding-since"),
+                ],
+            )
+        )
+
+    return html.Div([
+        html.P(
+            f"Currently holds {count} product{'s' if count != 1 else ''}.",
+            className="muted",
+            style={"marginBottom": "10px", "fontSize": "13px"},
+        ),
+        html.Div(className="holdings-grid", children=cards),
+    ])
+
+
 def build_layout() -> html.Div:
     s = data.summary()
     products = sorted(data.forecasts()["product"].unique())
-    options = [{"label": p.replace("_", " "), "value": p} for p in products]
+    options = [{"label": p.replace("_", " ").title(), "value": p} for p in products]
 
     return html.Div(
         className="page",
@@ -116,12 +170,14 @@ def build_layout() -> html.Div:
                 children=[
                     _card(
                         "How each approach compares",
-                        "Accuracy of every model tested against actual customer decisions from the last three months. Higher is better.",
+                        "Accuracy of every model tested against actual customer decisions "
+                        "from the last three months. Higher is better.",
                         dcc.Graph(id="leaderboard-chart", config={"displayModeBar": False}),
                     ),
                     _card(
                         "Six-month outlook",
-                        "How many customers are expected to sign up for a given product each month. The shaded area shows the range of likely outcomes.",
+                        "How many customers are expected to sign up for a given product "
+                        "each month. The shaded area shows the range of likely outcomes.",
                         html.Div(
                             children=[
                                 dcc.Dropdown(
@@ -137,7 +193,8 @@ def build_layout() -> html.Div:
             ),
             _card(
                 "Individual customer view",
-                "Products this customer currently holds on the left. What they are most likely to add next on the right, with the reason why.",
+                "Products this customer currently holds on the left, with how long "
+                "they have had each one. What to offer next is on the right.",
                 html.Div(
                     children=[
                         dcc.Dropdown(
@@ -149,7 +206,7 @@ def build_layout() -> html.Div:
                         html.Div(
                             className="grid-2",
                             children=[
-                                dcc.Graph(id="customer-timeline", config={"displayModeBar": False}),
+                                html.Div(id="customer-holdings"),
                                 html.Div(id="customer-recs"),
                             ],
                         ),
@@ -158,17 +215,13 @@ def build_layout() -> html.Div:
             ),
             _card(
                 "Where new sign-ups are coming from",
-                "The eight most active products by new customers added each month.",
+                "The nine most active products. Each panel shows monthly new customers, "
+                "total sign-ups for the period, and whether the trend is rising or falling.",
                 dcc.Graph(id="trends-chart", config={"displayModeBar": False}),
-            ),
-            _card(
-                "Data freshness",
-                "Each row is one daily run. The pipeline executes today; the data it loads covers historical customer months going back to 2015.",
-                html.Div(id="pipeline-log"),
             ),
             dcc.Interval(id="refresh-tick", interval=5 * 60 * 1000),
             html.Footer(
-                "Refreshes every morning. Numbers update automatically — no page reload needed.",
+                "Based on historical retail banking customer data, 2015–2016.",
                 className="muted footer",
             ),
         ],
@@ -184,7 +237,7 @@ def recs_table(recs) -> html.Table:
             html.Tr(
                 children=[
                     html.Td(f"{int(r['rank'])}", className="rank"),
-                    html.Td(r["product"].replace("_", " "), className="prod"),
+                    html.Td(r["product"].replace("_", " ").title(), className="prod"),
                     html.Td(
                         html.Div(
                             className="scorebar-wrap",
@@ -197,58 +250,19 @@ def recs_table(recs) -> html.Table:
                 ]
             )
         )
-    head = html.Tr([html.Th("#"), html.Th("product"), html.Th("likelihood"), html.Th("reason")])
-    return html.Table(className="recs-table", children=[head] + rows)
-
-
-def _fmt_month(raw: str) -> str:
-    """Turn '2016-01-28' into 'January 2016' for display."""
-    try:
-        import datetime
-        dt = datetime.datetime.strptime(raw[:10], "%Y-%m-%d")
-        return dt.strftime("%B %Y")
-    except Exception:
-        return raw
-
-
-def log_table(runs: list[dict]) -> html.Div:
-    note = html.P(
-        "The 'pipeline ran' date is today's date each time the code executed. "
-        "'Data covers through' shows the latest month of historical customer data "
-        "that was loaded into the model — this advances by one month per daily run.",
-        className="muted",
-        style={"fontSize": "12px", "marginBottom": "10px"},
-    )
-    head = html.Tr(
-        [
-            html.Th("pipeline ran"),
-            html.Th("data covers through"),
-            html.Th("customer records"),
-            html.Th("status"),
-        ]
-    )
-    table_rows = [
-        html.Tr(
-            [
-                html.Td(r.get("ts", "")[:10]),
-                html.Td(_fmt_month(r.get("latest_month", ""))),
-                html.Td(f"{r.get('rows', 0):,}"),
-                html.Td(
-                    html.Span(
-                        "ok",
-                        style={"color": "#059669", "fontWeight": "600"}
-                    ) if r.get("refresh_status") == "ok" else (
-                        html.Span(
-                            "failed",
-                            style={"color": "#dc2626", "fontWeight": "600"}
-                        ) if r.get("refresh_status") == "failed" else "—"
-                    )
-                ),
-            ]
-        )
-        for r in reversed(runs[-8:])
-    ]
+    head = html.Tr([html.Th("#"), html.Th("Product"), html.Th("Likelihood"), html.Th("Reason")])
+    table = html.Table(className="recs-table", children=[head] + rows)
     return html.Div([
-        note,
-        html.Table(className="recs-table", children=[head] + table_rows),
+        html.H4(
+            "New Product Offering",
+            style={
+                "fontSize": "13px",
+                "fontWeight": "600",
+                "color": "#0f172a",
+                "marginBottom": "10px",
+                "letterSpacing": "0.02em",
+                "textTransform": "uppercase",
+            },
+        ),
+        table,
     ])

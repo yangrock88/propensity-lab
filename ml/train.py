@@ -28,7 +28,7 @@ import config
 from ml import evaluate, features, forecast, models
 from ml.features import PRODUCTS
 
-LABELS = {p: p.replace("_", " ") for p in PRODUCTS}
+LABELS = {p: p.replace("_", " ").title() for p in PRODUCTS}
 
 
 def _reasons(cf: models.ItemItemCF, held: np.ndarray, product_ix: np.ndarray) -> list[str]:
