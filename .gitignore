@@ -1,0 +1,20 @@
+# data and artifacts stay local. Kaggle terms do not allow redistribution
+# of the raw competition file, and generated artifacts are reproducible.
+data/
+*.duckdb
+*.duckdb.wal
+logs/
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# scratch notes, not part of the product
+.buildkit/
+dbt_project/.user.yml 

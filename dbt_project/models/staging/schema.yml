@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_customer_snapshots
+    description: >
+      Certified customer-month snapshots. Grain: one row per
+      (snapshot_date, customer_id), enforced by the unique test on
+      snapshot_customer_key. All column renames and type casts happen
+      here and only here.
+    columns:
+      - name: snapshot_customer_key
+        description: Surrogate key, snapshot_date and customer_id joined with a pipe.
+        tests: [unique, not_null]
+      - name: snapshot_date
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: age
+        description: Customer age in years at snapshot time.
+      - name: tenure_months
+        description: Months since the customer joined the bank, floored at zero.
+      - name: gross_income
+        description: Reported gross household income in euros. Nullable in the real source.
+      - name: segment
+        description: Commercial segment assigned by the bank.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["01 - TOP", "02 - PARTICULARES", "03 - UNIVERSITARIO"]
+      - name: held_product_count
+        description: Count of the 24 product flags set to 1 on this row.

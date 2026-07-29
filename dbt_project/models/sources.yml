@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Landing zone written by pipeline/ingest.py. One row per customer
+      per monthly snapshot, in the original source schema (Spanish
+      column names, 24 product ownership flags). Rebuilt idempotently
+      on every scheduled run from the months loaded so far.
+    schema: raw
+    tables:
+      - name: customer_snapshots
+        description: >
+          Monthly customer snapshots. Grain: one row per (fecha_dato,
+          ncodpers). Product columns are 0/1 ownership flags as of the
+          snapshot date. Source is either the Kaggle Santander file or
+          the schema-identical synthetic generator; the loaded source is
+          recorded in raw.load_log and surfaced on the dashboard.
+        loaded_at_field: "CAST(fecha_dato AS TIMESTAMP)"
+        columns:
+          - name: ncodpers
+            description: Customer identifier assigned by the source system.
+            tests: [not_null]
+          - name: fecha_dato
+            description: Snapshot date, always the 28th of the month.
+            tests: [not_null]

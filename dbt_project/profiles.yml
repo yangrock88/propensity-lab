@@ -1,0 +1,7 @@
+nextproduct:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('NEXTPRODUCT_DB', '../data/warehouse.duckdb') }}"
+      threads: 4

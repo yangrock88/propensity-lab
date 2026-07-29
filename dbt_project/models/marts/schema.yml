@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: fct_product_adds
+    description: >
+      One row per product add event. An add means the ownership flag
+      flipped from 0 to 1 between two consecutive monthly snapshots.
+      First-month snapshots produce no events because there is no prior
+      month to compare against. This table is the training target for
+      the recommender and the input series for the adoption forecast.
+    columns:
+      - name: add_month
+        description: Snapshot month in which the product first appeared.
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: product
+        description: Business product name from the canonical list.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - savings_account
+                  - guarantee
+                  - checking_account
+                  - derivatives
+                  - payroll_account
+                  - junior_account
+                  - particular_plus_account
+                  - particular_account
+                  - premium_account
+                  - short_term_deposit
+                  - medium_term_deposit
+                  - long_term_deposit
+                  - e_account
+                  - investment_fund
+                  - mortgage
+                  - pension_plan
+                  - personal_loan
+                  - tax_payment_service
+                  - credit_card
+                  - securities
+                  - home_account
+                  - payroll_deposit
+                  - pension_deposit
+                  - direct_debit
+
+  - name: dim_customer
+    description: >
+      Latest known attributes for every customer plus lifetime add
+      count. One row per customer, refreshed on every pipeline run.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: held_product_count
+        description: Products held as of the latest snapshot.
+      - name: lifetime_product_adds
+        description: Total add events observed for this customer in the loaded window.
+
+  - name: agg_product_month
+    description: >
+      Product-month rollup of holders, adds, drops and net change.
+      Grain: one row per (snapshot_date, product). Drives the adoption
+      forecast and the dashboard trend charts.
+    columns:
+      - name: snapshot_date
+        tests: [not_null]
+      - name: product
+        tests: [not_null]
+      - name: holders
+        description: Customers holding the product at the snapshot.
+      - name: adds
+        description: Customers who added the product that month. Zero in the first loaded month by construction.

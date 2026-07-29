@@ -1,0 +1,48 @@
+name: nextproduct
+version: "1.0.0"
+profile: nextproduct
+
+model-paths: ["models"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Canonical product list. Order matters: it matches the source schema
+  # and every downstream consumer (ML feature frame, dashboard) uses it.
+  product_names:
+    - savings_account
+    - guarantee
+    - checking_account
+    - derivatives
+    - payroll_account
+    - junior_account
+    - particular_plus_account
+    - particular_account
+    - premium_account
+    - short_term_deposit
+    - medium_term_deposit
+    - long_term_deposit
+    - e_account
+    - investment_fund
+    - mortgage
+    - pension_plan
+    - personal_loan
+    - tax_payment_service
+    - credit_card
+    - securities
+    - home_account
+    - payroll_deposit
+    - pension_deposit
+    - direct_debit
+
+models:
+  nextproduct:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
