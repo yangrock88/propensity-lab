@@ -3,9 +3,9 @@
 Maintainer: Rocky Yang
 Last reviewed: 2026-07-28
 
-Five recommendation models are trained on every refresh and compared in a
-walk-forward backtest. The best one by MAP@7 becomes the champion and
-produces the published recommendations. A sixth model, the adoption
+Five recommendation models are trained on the full historical panel and
+compared in a walk-forward backtest. The best one by MAP@7 becomes the
+champion and produces the published recommendations. A sixth model, the adoption
 forecaster, is a separate time-series system. Latest backtest numbers are
 in data/artifacts/leaderboard.json; the numbers quoted here are from the
 review date and will drift as more months load.
@@ -34,7 +34,7 @@ this dataset comes from the add distribution being head-heavy; a handful
 of products (checking, direct debit, e-account) dominate adds, so global
 popularity is genuinely hard to beat. That is worth knowing on its own.
 
-Retrain cadence: every refresh (it costs microseconds).
+Training cost: negligible — runs in milliseconds on the full panel.
 
 ## item_item_cf
 
@@ -55,7 +55,7 @@ express pairwise structure. It earns its keep through interpretability:
 when the champion recommends a pension deposit, this model can say it is
 because the customer holds a payroll deposit.
 
-Retrain cadence: every refresh.
+Training cost: fast — similarity matrix computed once from the latest snapshot.
 
 ## als_factorization
 
@@ -75,7 +75,7 @@ structure for factorization to find, and showing that honestly is more
 valuable than hiding it. If the catalog were hundreds of items this
 family would be worth revisiting.
 
-Retrain cadence: every refresh.
+Training cost: moderate — alternating least-squares converges in 12 iterations.
 
 ## lightgbm (champion at review date)
 
@@ -103,8 +103,7 @@ modest, which is typical for this dataset; the original Kaggle
 competition was won by exactly this model family with margins of a
 similar flavor.
 
-Retrain cadence: every refresh. Training all 24 classifiers takes well
-under a minute at demo scale.
+Training cost: under a minute for all 24 classifiers at this dataset size.
 
 ## blend_lgbm_cf
 

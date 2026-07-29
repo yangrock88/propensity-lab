@@ -6,7 +6,7 @@ Last reviewed: 2026-07-28
 ## What this system does
 
 For a retail bank with 24 products and a monthly customer snapshot, it
-answers two questions every morning:
+answers two questions from a fixed panel of historical customer data:
 
 1. For each customer, which products are they most likely to add next
    month? Seven ranked suggestions per customer, each with a reason a
@@ -71,8 +71,8 @@ monthly decisions is material.
 Step 5: a blend of the two strongest models. Cheap to test, and today it
 does not beat the champion, because the boosted model already consumes
 the holdings signal the collaborative filter runs on. The leaderboard
-re-runs daily, so if more data changes the answer, the champion changes
-with it. Champion selection is automatic, not a matter of opinion.
+re-runs with each pipeline execution, so any code or data change is
+immediately re-evaluated. Champion selection is automatic, not a matter of opinion.
 
 ## The forecasting choice
 
@@ -88,12 +88,13 @@ forecast is worse than a modest one with a visible band.
 
 ## Operating model
 
-The pipeline runs daily on a scheduler. Each run lands a new monthly
-snapshot, rebuilds the warehouse models, runs twenty automated data
-checks, retrains all five models, re-runs the backtest, republishes
-recommendations and forecasts, and stamps the dashboard with the refresh
-time. If anything fails, the previous day's outputs stay live and the
-failure is logged; the dashboard degrades to stale, never to wrong.
+The pipeline replays monthly snapshots sequentially from the historical
+dataset, mirroring how a production warehouse receives new monthly data.
+Each run loads the next snapshot, rebuilds the warehouse models, runs
+twenty automated checks, retrains all five models, re-runs the backtest,
+and republishes recommendations and forecasts. If a run fails, the
+previous outputs stay live and the failure is logged; the dashboard
+degrades to stale, never to wrong.
 
 Total infrastructure cost: zero. Everything runs locally on DuckDB, dbt,
 Python and open-source libraries.
