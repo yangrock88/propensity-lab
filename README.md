@@ -10,7 +10,7 @@ short_description: Next-product recommendations and adoption forecasts for retai
 
 # Propensity Lab
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Hugging%20Face%20Spaces-blue?logo=huggingface)](https://yangrock88-propensity-lab.hf.space)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-4f46e5?logo=github)](https://yangrock88.github.io/propensity-lab/)
 
 Product recommendations and adoption forecasts for a retail banking book, and adoption forecasts for a
 retail bank, built on the public Santander product dataset schema.
