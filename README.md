@@ -27,23 +27,21 @@ winners is marketing.
 | Orchestration | scheduler.py + Windows Task Scheduler, daily |
 | Dashboard | Plotly Dash |
 
-## Quickstart
+## Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12.
 
-    git clone <repo-url>
-    cd nextproduct
+    git clone https://github.com/yangrock88/propensity-lab
+    cd propensity-lab
     uv sync
-    uv run python scheduler.py       # first full pipeline run, ~2 min
-    uv run python app/app.py         # dashboard at http://127.0.0.1:8050
+    uv run python scheduler.py    # builds the warehouse and trains the models, ~2 min
+    uv run python app/app.py      # dashboard at http://127.0.0.1:8050
 
-The first run generates a demo panel (20,000 customers, monthly
-snapshots) with realistic cross-sell structure, loads the first eight
-months, builds and tests the dbt models, backtests the model suite and
-publishes the dashboard artifacts. Each later run loads one more month,
-which is how a daily warehouse load is simulated.
+The first run loads eight months of data and trains the full model
+suite. Each later run adds another month, the same way a real warehouse
+picks up a new monthly drop.
 
-To schedule the daily refresh:
+To set up the daily 06:30 refresh:
 
     powershell -ExecutionPolicy Bypass -File register_task.ps1
 

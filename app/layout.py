@@ -31,12 +31,19 @@ def _kpi(label: str, value: str, note: str = "") -> html.Div:
 
 
 def header(s: dict) -> html.Div:
-    source = "Kaggle source file" if s.get("source") == "kaggle" else "demo generator"
+    latest = s.get("latest_month", "?")
+    try:
+        import datetime
+        dt = datetime.datetime.strptime(latest, "%Y-%m-%d")
+        latest_label = dt.strftime("%B %Y")
+    except Exception:
+        latest_label = latest
+    run_ts = s.get("run_ts", "?")
+    run_label = run_ts[:10] if run_ts != "?" else "?"
     pills = [
-        html.Span(f"data: {source}", className="pill"),
-        html.Span(f"{s.get('months_loaded', '?')} months loaded", className="pill"),
-        html.Span(f"through {s.get('latest_month', '?')}", className="pill"),
-        html.Span(f"refreshed {s.get('run_ts', '?')[:16]} UTC", className="pill pill-fresh"),
+        html.Span(f"{s.get('months_loaded', '?')} months of history", className="pill"),
+        html.Span(f"through {latest_label}", className="pill"),
+        html.Span(f"last updated {run_label}", className="pill pill-fresh"),
     ]
     return html.Div(
         className="header",
@@ -45,8 +52,8 @@ def header(s: dict) -> html.Div:
                 children=[
                     html.H1("Propensity Lab"),
                     html.P(
-                        "Per-customer product recommendations and adoption "
-                        "forecasts for a retail bank, refreshed daily.",
+                        "Which financial products is each customer likely to add next? "
+                        "Updated every morning.",
                         className="muted",
                     ),
                 ]
@@ -62,24 +69,33 @@ def kpi_row(s: dict) -> html.Div:
         if s.get("baseline_map_at_7")
         else 0
     )
+    model_labels = {
+        "lightgbm": "Gradient boosting",
+        "blend_lgbm_cf": "Combined approach",
+        "item_item_cf": "Customer similarity",
+        "als_factorization": "Pattern matching",
+        "popularity_baseline": "Popularity baseline",
+    }
+    champion_raw = s.get("champion_model", "-")
+    champion_display = model_labels.get(champion_raw, champion_raw.replace("_", " "))
     return html.Div(
         className="kpi-row",
         children=[
-            _kpi("Customers scored", f"{s.get('customers_scored', 0):,}"),
+            _kpi("Customers analyzed", f"{s.get('customers_scored', 0):,}"),
             _kpi(
-                "Champion MAP@7",
+                "Recommendation accuracy",
                 f"{s.get('champion_map_at_7', 0):.3f}",
-                f"{lift:+.1%} vs popularity baseline",
+                f"{lift:+.1%} better than guessing by popularity alone",
             ),
             _kpi(
-                "Champion model",
-                s.get("champion_model", "-").replace("_", " "),
-                "selected by walk-forward backtest",
+                "Best performing model",
+                champion_display,
+                "chosen by testing against actual customer behavior",
             ),
             _kpi(
-                "Projected adds next month",
+                "New sign-ups expected next month",
                 f"{s.get('projected_adds_next_month', 0):,}",
-                "sum of per-product forecasts",
+                "across all products, based on current trends",
             ),
         ],
     )
@@ -99,13 +115,13 @@ def build_layout() -> html.Div:
                 className="grid-2",
                 children=[
                     _card(
-                        "Model backtest",
-                        "walk-forward MAP@7 across the three most recent months",
+                        "How each approach compares",
+                        "Accuracy of every model tested against actual customer decisions from the last three months. Higher is better.",
                         dcc.Graph(id="leaderboard-chart", config={"displayModeBar": False}),
                     ),
                     _card(
-                        "Adoption forecast",
-                        "monthly product adds, six months ahead with an 80% band",
+                        "Six-month outlook",
+                        "How many customers are expected to sign up for a given product each month. The shaded area shows the range of likely outcomes.",
                         html.Div(
                             children=[
                                 dcc.Dropdown(
@@ -120,8 +136,8 @@ def build_layout() -> html.Div:
                 ],
             ),
             _card(
-                "Customer lookup",
-                "holdings history on the left, current top-7 recommendations on the right",
+                "Individual customer view",
+                "Products this customer currently holds on the left. What they are most likely to add next on the right, with the reason why.",
                 html.Div(
                     children=[
                         dcc.Dropdown(
@@ -141,20 +157,18 @@ def build_layout() -> html.Div:
                 ),
             ),
             _card(
-                "Where growth is coming from",
-                "monthly adds for the eight most-added products",
+                "Where new sign-ups are coming from",
+                "The eight most active products by new customers added each month.",
                 dcc.Graph(id="trends-chart", config={"displayModeBar": False}),
             ),
             _card(
-                "Pipeline health",
-                "latest scheduled runs, most recent first",
+                "Data freshness",
+                "Recent daily updates. A gap here means the morning refresh did not run.",
                 html.Div(id="pipeline-log"),
             ),
             dcc.Interval(id="refresh-tick", interval=5 * 60 * 1000),
             html.Footer(
-                "Built on DuckDB, dbt and LightGBM. Data refreshes daily via "
-                "the scheduled pipeline; this page picks up new artifacts "
-                "automatically.",
+                "Refreshes every morning. Numbers update automatically — no page reload needed.",
                 className="muted footer",
             ),
         ],
@@ -183,21 +197,21 @@ def recs_table(recs) -> html.Table:
                 ]
             )
         )
-    head = html.Tr([html.Th("#"), html.Th("product"), html.Th("score"), html.Th("why")])
+    head = html.Tr([html.Th("#"), html.Th("product"), html.Th("likelihood"), html.Th("reason")])
     return html.Table(className="recs-table", children=[head] + rows)
 
 
 def log_table(runs: list[dict]) -> html.Table:
     head = html.Tr(
-        [html.Th("run (UTC)"), html.Th("source"), html.Th("months"), html.Th("rows")]
+        [html.Th("updated at"), html.Th("months of data"), html.Th("customer records"), html.Th("status")]
     )
     rows = [
         html.Tr(
             [
-                html.Td(r.get("ts", "")[:16].replace("T", " ")),
-                html.Td(r.get("source", "")),
+                html.Td(r.get("ts", "")[:10]),
                 html.Td(str(r.get("months_loaded", ""))),
                 html.Td(f"{r.get('rows', 0):,}"),
+                html.Td("ok" if r.get("refresh_status") == "ok" else ("failed" if r.get("refresh_status") == "failed" else "—")),
             ]
         )
         for r in reversed(runs[-8:])

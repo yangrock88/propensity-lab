@@ -34,8 +34,21 @@ def _base(fig: go.Figure, height: int = 320) -> go.Figure:
     return fig
 
 
+MODEL_LABELS = {
+    "lightgbm": "Gradient boosting",
+    "blend_lgbm_cf": "Combined approach",
+    "item_item_cf": "Customer similarity",
+    "als_factorization": "Pattern matching",
+    "popularity_baseline": "Popularity baseline",
+}
+
+
 def _label(p: str) -> str:
     return p.replace("_", " ")
+
+
+def _model_label(m: str) -> str:
+    return MODEL_LABELS.get(m, m.replace("_", " "))
 
 
 def model_leaderboard(lb: pd.DataFrame) -> go.Figure:
@@ -49,15 +62,15 @@ def model_leaderboard(lb: pd.DataFrame) -> go.Figure:
     fig = go.Figure(
         go.Bar(
             x=lb["map_at_7"],
-            y=[m.replace("_", " ") for m in lb["model"]],
+            y=[_model_label(m) for m in lb["model"]],
             orientation="h",
             marker=dict(color=colors, cornerradius=6),
             text=[f"{v:.3f}" for v in lb["map_at_7"]],
             textposition="outside",
-            hovertemplate="%{y}: MAP@7 %{x:.4f}<extra></extra>",
+            hovertemplate="%{y}: accuracy score %{x:.4f}<extra></extra>",
         )
     )
-    fig.update_xaxes(range=[0, lb["map_at_7"].max() * 1.22], title="MAP@7 (walk-forward, 3 folds)")
+    fig.update_xaxes(range=[0, lb["map_at_7"].max() * 1.22], title="Accuracy score (higher is better)")
     return _base(fig, height=280)
 
 
@@ -80,19 +93,19 @@ def adoption_forecast(fc: pd.DataFrame, product: str) -> go.Figure:
     )
     fig.add_trace(
         go.Scatter(
-            x=hist["month"], y=hist["adds"], name="actual adds",
+            x=hist["month"], y=hist["adds"], name="new sign-ups",
             line=dict(color=INK, width=2.4),
-            hovertemplate="%{x|%b %Y}: %{y:.0f} adds<extra></extra>",
+            hovertemplate="%{x|%b %Y}: %{y:.0f} new sign-ups<extra></extra>",
         )
     )
     fig.add_trace(
         go.Scatter(
-            x=bridge["month"], y=bridge["adds"], name="forecast",
+            x=bridge["month"], y=bridge["adds"], name="projected",
             line=dict(color=ACCENT, width=2.4, dash="dot"),
             hovertemplate="%{x|%b %Y}: %{y:.0f} projected<extra></extra>",
         )
     )
-    fig.update_yaxes(title="customers adding per month", rangemode="tozero")
+    fig.update_yaxes(title="customers signing up per month", rangemode="tozero")
     return _base(fig)
 
 
@@ -100,7 +113,7 @@ def holdings_timeline(timeline: pd.DataFrame, customer_id: int) -> go.Figure:
     df = timeline[timeline["customer_id"] == customer_id].copy()
     fig = go.Figure()
     if df.empty:
-        fig.add_annotation(text="No holdings on record", showarrow=False, font=FONT)
+        fig.add_annotation(text="No products on record for this customer", showarrow=False, font=FONT)
         return _base(fig, height=300)
 
     df["snapshot_date"] = pd.to_datetime(df["snapshot_date"])
@@ -115,7 +128,7 @@ def holdings_timeline(timeline: pd.DataFrame, customer_id: int) -> go.Figure:
                 mode="lines+markers",
                 line=dict(color=ACCENT, width=5), marker=dict(size=5, color=ACCENT),
                 opacity=0.75, showlegend=False,
-                hovertemplate=f"{_label(p)}: %{{x|%b %Y}}<extra></extra>",
+                hovertemplate=f"Holding {_label(p)} as of %{{x|%b %Y}}<extra></extra>",
             )
         )
     fig.update_yaxes(
@@ -149,7 +162,7 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
                 x=d["snapshot_date"], y=d["adds"], fill="tozeroy",
                 line=dict(color=ACCENT, width=1.8), fillcolor=ACCENT_SOFT,
                 showlegend=False,
-                hovertemplate="%{x|%b %Y}: %{y} adds<extra></extra>",
+                hovertemplate="%{x|%b %Y}: %{y} new sign-ups<extra></extra>",
             ),
             row=i // cols + 1, col=i % cols + 1,
         )
