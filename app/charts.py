@@ -153,12 +153,17 @@ def _trend_label(y: "pd.Series") -> str:
     return " →"
 
 
-def product_small_multiples(trends: pd.DataFrame, top_n: int = 9) -> go.Figure:
+def product_small_multiples(
+    trends: pd.DataFrame,
+    forecasts: "pd.DataFrame | None" = None,
+    top_n: int = 9,
+) -> go.Figure:
     """3 x 3 grid of mini trend charts, one per top product.
 
-    Each title shows the product name, total sign-ups across the window,
-    and a trend arrow so a viewer gets the story without hovering.
-    Axes show real numbers and dates so the chart is self-contained.
+    Each title shows the product name, total sign-ups, trend arrow, and
+    next month's projected value. When forecast data is supplied each
+    chart extends the historical line with a dotted projection and an
+    uncertainty band, mirroring the Six-Month Outlook card above.
     """
     from plotly.subplots import make_subplots
 
@@ -170,22 +175,37 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 9) -> go.Figure:
         trends.groupby("product")["adds"].sum().nlargest(top_n).index.tolist()
     )
 
+    # Pre-process forecast: keep first 3 future months per product.
+    fc_by_product: dict[str, pd.DataFrame] = {}
+    if forecasts is not None:
+        fc = forecasts.copy()
+        fc["month"] = pd.to_datetime(fc["month"])
+        for p, grp in fc[fc["kind"] == "forecast"].sort_values("month").groupby("product"):
+            fc_by_product[p] = grp.head(3).reset_index(drop=True)
+
     titles = []
     for p in top:
         d = trends[trends["product"] == p]
         total = int(d["adds"].sum())
         arrow = _trend_label(d.sort_values("snapshot_date")["adds"])
-        titles.append(f"{_label(p)}  ({total:,} sign-ups{arrow})")
+        if p in fc_by_product:
+            nxt = int(round(float(fc_by_product[p].iloc[0]["adds"])))
+            titles.append(f"{_label(p)}  ({total:,} sign-ups{arrow}  \u00b7  ~{nxt:,} next month)")
+        else:
+            titles.append(f"{_label(p)}  ({total:,} sign-ups{arrow})")
 
     rows, cols = 3, 3
     fig = make_subplots(
         rows=rows, cols=cols,
         subplot_titles=titles,
-        vertical_spacing=0.16,
+        vertical_spacing=0.20,
         horizontal_spacing=0.08,
     )
     for i, p in enumerate(top):
+        r, c = i // cols + 1, i % cols + 1
         d = trends[trends["product"] == p].sort_values("snapshot_date")
+
+        # Historical area
         fig.add_trace(
             go.Scatter(
                 x=d["snapshot_date"], y=d["adds"], fill="tozeroy",
@@ -193,10 +213,41 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 9) -> go.Figure:
                 showlegend=False,
                 hovertemplate="%{x|%b %Y}: %{y} new sign-ups<extra></extra>",
             ),
-            row=i // cols + 1, col=i % cols + 1,
+            row=r, col=c,
         )
 
-    fig.update_annotations(font=dict(size=11, color="#475569"))
+        # Forecast extension (band + dotted line)
+        if p in fc_by_product:
+            pfc = fc_by_product[p]
+            last = d.iloc[-1]
+            bx = [last["snapshot_date"]] + pfc["month"].tolist()
+            by = [float(last["adds"])] + pfc["adds"].tolist()
+            hi = pfc["hi"].fillna(pfc["adds"]).tolist()
+            lo = pfc["lo"].fillna(pfc["adds"]).tolist()
+
+            # Shaded uncertainty band
+            fig.add_trace(
+                go.Scatter(
+                    x=bx + pfc["month"].tolist()[::-1],
+                    y=[float(last["adds"])] + hi + lo[::-1],
+                    fill="toself", fillcolor=ACCENT_SOFT,
+                    line=dict(width=0), hoverinfo="skip", showlegend=False,
+                ),
+                row=r, col=c,
+            )
+
+            # Dotted projection line
+            fig.add_trace(
+                go.Scatter(
+                    x=bx, y=by,
+                    line=dict(color=ACCENT, width=1.5, dash="dot"),
+                    showlegend=False,
+                    hovertemplate="%{x|%b %Y}: ~%{y:.0f} projected<extra></extra>",
+                ),
+                row=r, col=c,
+            )
+
+    fig.update_annotations(font=dict(size=10, color="#475569"))
     fig.update_xaxes(
         tickformat="%b '%y",
         tickfont=dict(size=9, color=SLATE),
@@ -208,6 +259,6 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 9) -> go.Figure:
         nticks=4,
         gridcolor="#eef2f7",
     )
-    result = _base(fig, height=740)
-    result.update_layout(margin=dict(l=4, r=4, t=68, b=8))
+    result = _base(fig, height=760)
+    result.update_layout(margin=dict(l=4, r=4, t=72, b=8))
     return result

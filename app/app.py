@@ -35,7 +35,7 @@ app.layout = layout.build_layout  # callable: fresh artifacts on page load
 def refresh_static(_):
     return (
         charts.model_leaderboard(data.leaderboard()),
-        charts.product_small_multiples(data.product_trends()),
+        charts.product_small_multiples(data.product_trends(), data.forecasts()),
     )
 
 

@@ -188,7 +188,7 @@ def build() -> str:
     # figures — Plotly CDN loaded once via the leaderboard chart
     fig_lb = charts.model_leaderboard(lb)
     fig_fc = charts.adoption_forecast(fc, "payroll_deposit")
-    fig_sm = charts.product_small_multiples(trends)
+    fig_sm = charts.product_small_multiples(trends, fc)
 
     html_lb = _fig_html(fig_lb, first=True)
     html_fc = _fig_html(fig_fc)
