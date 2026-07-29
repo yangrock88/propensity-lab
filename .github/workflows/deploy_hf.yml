@@ -1,0 +1,24 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "106050654+yangrock88@users.noreply.github.com"
+          git config --global user.name "Rocky Yang"
+          git remote add space \
+            https://yangrock88:${HF_TOKEN}@huggingface.co/spaces/yangrock88/propensity-lab
+          git push --force space main

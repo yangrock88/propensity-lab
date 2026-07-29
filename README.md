@@ -1,6 +1,18 @@
+---
+title: Propensity Lab
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Next-product recommendations and adoption forecasts for retail banking
+---
+
 # Propensity Lab
 
-Daily-refreshed product recommendations and adoption forecasts for a
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Hugging%20Face%20Spaces-blue?logo=huggingface)](https://yangrock88-propensity-lab.hf.space)
+
+Product recommendations and adoption forecasts for a retail banking book, and adoption forecasts for a
 retail bank, built on the public Santander product dataset schema.
 
 Two questions, answered every morning:

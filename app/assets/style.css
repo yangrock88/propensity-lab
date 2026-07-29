@@ -150,6 +150,38 @@ h3 {
 
 .footer { margin-top: 8px; text-align: center; }
 
+/* --- Customer holdings badge cards --- */
+
+.holdings-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.holding-card {
+  background: var(--accent-soft);
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 9px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 138px;
+}
+
+.holding-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.holding-since {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 @media (max-width: 900px) {
   .kpi-row { grid-template-columns: 1fr 1fr; }
   .grid-2 { grid-template-columns: 1fr; }

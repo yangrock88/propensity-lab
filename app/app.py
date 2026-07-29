@@ -7,6 +7,7 @@ charts whenever the data selector or forecast dropdown changes.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -63,4 +64,6 @@ def refresh_customer(customer_id, _):
 
 
 if __name__ == "__main__":
-    app.run(debug=False, port=8050)
+    port = int(os.environ.get("PORT", 8050))
+    host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+    app.run(debug=False, host=host, port=port)
