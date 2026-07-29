@@ -163,7 +163,7 @@ def build_layout() -> html.Div:
             ),
             _card(
                 "Data freshness",
-                "Recent daily updates. A gap here means the morning refresh did not run.",
+                "Each row is one daily run. The pipeline executes today; the data it loads covers historical customer months going back to 2015.",
                 html.Div(id="pipeline-log"),
             ),
             dcc.Interval(id="refresh-tick", interval=5 * 60 * 1000),
@@ -201,19 +201,54 @@ def recs_table(recs) -> html.Table:
     return html.Table(className="recs-table", children=[head] + rows)
 
 
-def log_table(runs: list[dict]) -> html.Table:
-    head = html.Tr(
-        [html.Th("updated at"), html.Th("months of data"), html.Th("customer records"), html.Th("status")]
+def _fmt_month(raw: str) -> str:
+    """Turn '2016-01-28' into 'January 2016' for display."""
+    try:
+        import datetime
+        dt = datetime.datetime.strptime(raw[:10], "%Y-%m-%d")
+        return dt.strftime("%B %Y")
+    except Exception:
+        return raw
+
+
+def log_table(runs: list[dict]) -> html.Div:
+    note = html.P(
+        "The 'pipeline ran' date is today's date each time the code executed. "
+        "'Data covers through' shows the latest month of historical customer data "
+        "that was loaded into the model — this advances by one month per daily run.",
+        className="muted",
+        style={"fontSize": "12px", "marginBottom": "10px"},
     )
-    rows = [
+    head = html.Tr(
+        [
+            html.Th("pipeline ran"),
+            html.Th("data covers through"),
+            html.Th("customer records"),
+            html.Th("status"),
+        ]
+    )
+    table_rows = [
         html.Tr(
             [
                 html.Td(r.get("ts", "")[:10]),
-                html.Td(str(r.get("months_loaded", ""))),
+                html.Td(_fmt_month(r.get("latest_month", ""))),
                 html.Td(f"{r.get('rows', 0):,}"),
-                html.Td("ok" if r.get("refresh_status") == "ok" else ("failed" if r.get("refresh_status") == "failed" else "—")),
+                html.Td(
+                    html.Span(
+                        "ok",
+                        style={"color": "#059669", "fontWeight": "600"}
+                    ) if r.get("refresh_status") == "ok" else (
+                        html.Span(
+                            "failed",
+                            style={"color": "#dc2626", "fontWeight": "600"}
+                        ) if r.get("refresh_status") == "failed" else "—"
+                    )
+                ),
             ]
         )
         for r in reversed(runs[-8:])
     ]
-    return html.Table(className="recs-table", children=[head] + rows)
+    return html.Div([
+        note,
+        html.Table(className="recs-table", children=[head] + table_rows),
+    ])

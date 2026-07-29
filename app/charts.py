@@ -139,6 +139,20 @@ def holdings_timeline(timeline: pd.DataFrame, customer_id: int) -> go.Figure:
     return _base(fig, height=max(240, 30 * len(products) + 90))
 
 
+def _trend_label(y: "pd.Series") -> str:
+    """Single-character trend direction based on first-half vs second-half mean."""
+    vals = y.to_numpy()
+    if len(vals) < 4 or vals.mean() == 0:
+        return ""
+    mid = len(vals) // 2
+    chg = (vals[mid:].mean() - vals[:mid].mean()) / max(vals[:mid].mean(), 1)
+    if chg > 0.08:
+        return " ↑"
+    if chg < -0.08:
+        return " ↓"
+    return " →"
+
+
 def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
     from plotly.subplots import make_subplots
 
@@ -149,11 +163,21 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
     top = (
         trends.groupby("product")["adds"].sum().nlargest(top_n).index.tolist()
     )
+
+    # Build titles that tell the viewer the product name, total sign-ups,
+    # and whether the trend is rising, falling, or flat.
+    titles = []
+    for p in top:
+        d = trends[trends["product"] == p]
+        total = int(d["adds"].sum())
+        arrow = _trend_label(d.sort_values("snapshot_date")["adds"])
+        titles.append(f"{_label(p)}  —  {total:,} total{arrow}")
+
     rows = 2
     cols = top_n // rows
     fig = make_subplots(
-        rows=rows, cols=cols, subplot_titles=[_label(p) for p in top],
-        vertical_spacing=0.22, horizontal_spacing=0.05,
+        rows=rows, cols=cols, subplot_titles=titles,
+        vertical_spacing=0.32, horizontal_spacing=0.08,
     )
     for i, p in enumerate(top):
         d = trends[trends["product"] == p].sort_values("snapshot_date")
@@ -166,7 +190,17 @@ def product_small_multiples(trends: pd.DataFrame, top_n: int = 8) -> go.Figure:
             ),
             row=i // cols + 1, col=i % cols + 1,
         )
-    fig.update_annotations(font=dict(size=12, color="#475569"))
-    fig.update_xaxes(showticklabels=False)
-    fig.update_yaxes(showticklabels=False, showgrid=False)
-    return _base(fig, height=320)
+    fig.update_annotations(font=dict(size=10, color="#475569"))
+    # Show simplified date labels and actual sign-up counts on the axes
+    # so a viewer can read the chart without prior context.
+    fig.update_xaxes(
+        tickformat="%b '%y", tickfont=dict(size=8, color=SLATE), nticks=3,
+        showgrid=False,
+    )
+    fig.update_yaxes(
+        tickfont=dict(size=8, color=SLATE), nticks=3, gridcolor="#eef2f7",
+    )
+    result = _base(fig, height=500)
+    # Override the tiny default top margin so row-1 titles are not clipped.
+    result.update_layout(margin=dict(l=4, r=4, t=64, b=4))
+    return result
