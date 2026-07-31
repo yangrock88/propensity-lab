@@ -15,7 +15,6 @@ dependencies = [
     "plotly>=5.22",
     "dash>=2.17",
     "pyarrow>=25.0.0",
-    "huggingface-hub>=1.25.1",
 ]
 
 [tool.uv]
